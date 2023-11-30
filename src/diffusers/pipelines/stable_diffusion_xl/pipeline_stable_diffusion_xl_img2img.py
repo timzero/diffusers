@@ -54,6 +54,7 @@ from ...utils import (
 from ...utils.torch_utils import randn_tensor
 from ..pipeline_utils import DiffusionPipeline
 from .pipeline_output import StableDiffusionXLPipelineOutput
+from .circular_padding import CircularPaddingMixin
 
 
 if is_invisible_watermark_available():
@@ -169,6 +170,7 @@ class StableDiffusionXLImg2ImgPipeline(
     FromSingleFileMixin,
     StableDiffusionXLLoraLoaderMixin,
     IPAdapterMixin,
+    CircularPaddingMixin,
 ):
     r"""
     Pipeline for text-to-image generation using Stable Diffusion XL.
@@ -956,6 +958,7 @@ class StableDiffusionXLImg2ImgPipeline(
         clip_skip: Optional[int] = None,
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
+        circular_padding: str = 'none',
         **kwargs,
     ):
         r"""
@@ -1248,6 +1251,9 @@ class StableDiffusionXLImg2ImgPipeline(
         )
         add_time_ids = add_time_ids.repeat(batch_size * num_images_per_prompt, 1)
 
+        if circular_padding != 'none':
+            self.set_circular_padding_mode(circular_padding)
+
         if self.do_classifier_free_guidance:
             prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds], dim=0)
             add_text_embeds = torch.cat([negative_pooled_prompt_embeds, add_text_embeds], dim=0)
@@ -1379,6 +1385,9 @@ class StableDiffusionXLImg2ImgPipeline(
             image = self.watermark.apply_watermark(image)
 
         image = self.image_processor.postprocess(image, output_type=output_type)
+
+        if circular_padding != 'none':
+            self.disable_circular_padding_mode()
 
         # Offload all models
         self.maybe_free_model_hooks()

@@ -561,6 +561,23 @@ class StableDiffusionXLImg2ImgRefinerOnlyPipelineFastTests(
 
         assert np.abs(image_slice.flatten() - expected_slice).max() < 1e-2
 
+    def test_stable_diffusion_xl_img2img_circular_padding(self):
+        device = "cpu"  # ensure determinism for the device-dependent torch.Generator
+        components = self.get_dummy_components()
+        sd_pipe = StableDiffusionXLImg2ImgPipeline(**components)
+        sd_pipe = sd_pipe.to(device)
+        sd_pipe.set_progress_bar_config(disable=None)
+
+        inputs = self.get_dummy_inputs(device)
+        image = sd_pipe(**inputs, circular_padding='x').images
+        image_slice = image[0, -3:, -3:, -1]
+
+        assert image.shape == (1, 32, 32, 3)
+
+        expected_slice = np.array([0.4653, 0.5734, 0.5959, 0.6247,  0.5422,  0.4020, 0.5419, 0.4931, 0.5187])
+
+        assert np.abs(image_slice.flatten() - expected_slice).max() < 1e-2
+
     @require_torch_gpu
     def test_stable_diffusion_xl_offloads(self):
         pipes = []

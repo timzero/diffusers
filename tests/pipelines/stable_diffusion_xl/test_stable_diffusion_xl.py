@@ -202,6 +202,23 @@ class StableDiffusionXLPipelineFastTests(
 
         assert np.abs(image_slice.flatten() - expected_slice).max() < 1e-2
 
+    def test_stable_diffusion_xl_circular_padding(self):
+        device = "cpu"  # ensure determinism for the device-dependent torch.Generator
+        components = self.get_dummy_components()
+        sd_pipe = StableDiffusionXLPipeline(**components)
+        sd_pipe = sd_pipe.to(device)
+        sd_pipe.set_progress_bar_config(disable=None)
+
+        inputs = self.get_dummy_inputs(device)
+        image = sd_pipe(**inputs, circular_padding='x').images
+        image_slice = image[0, -3:, -3:, -1]
+
+        assert image.shape == (1, 64, 64, 3)
+
+        expected_slice = np.array([0.5101, 0.5976, 0.4226, 0.4383, 0.4882, 0.3756, 0.5517, 0.5847, 0.5696])
+
+        assert np.abs(image_slice.flatten() - expected_slice).max() < 1e-2
+
     def test_stable_diffusion_xl_prompt_embeds(self):
         components = self.get_dummy_components()
         sd_pipe = StableDiffusionXLPipeline(**components)

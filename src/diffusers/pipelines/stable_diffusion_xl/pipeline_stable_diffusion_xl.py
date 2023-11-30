@@ -53,7 +53,7 @@ from ...utils import (
 from ...utils.torch_utils import randn_tensor
 from ..pipeline_utils import DiffusionPipeline
 from .pipeline_output import StableDiffusionXLPipelineOutput
-
+from .circular_padding import CircularPaddingMixin
 
 if is_invisible_watermark_available():
     from .watermark import StableDiffusionXLWatermarker
@@ -151,6 +151,7 @@ class StableDiffusionXLPipeline(
     StableDiffusionXLLoraLoaderMixin,
     TextualInversionLoaderMixin,
     IPAdapterMixin,
+    CircularPaddingMixin,
 ):
     r"""
     Pipeline for text-to-image generation using Stable Diffusion XL.
@@ -637,6 +638,7 @@ class StableDiffusionXLPipeline(
     # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.prepare_latents
     def prepare_latents(self, batch_size, num_channels_latents, height, width, dtype, device, generator, latents=None):
         shape = (batch_size, num_channels_latents, height // self.vae_scale_factor, width // self.vae_scale_factor)
+
         if isinstance(generator, list) and len(generator) != batch_size:
             raise ValueError(
                 f"You have passed a list of generators of length {len(generator)}, but requested an effective batch"
@@ -814,6 +816,7 @@ class StableDiffusionXLPipeline(
         clip_skip: Optional[int] = None,
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
+        circular_padding: str = 'none',
         **kwargs,
     ):
         r"""
@@ -1082,6 +1085,9 @@ class StableDiffusionXLPipeline(
             add_text_embeds = torch.cat([negative_pooled_prompt_embeds, add_text_embeds], dim=0)
             add_time_ids = torch.cat([negative_add_time_ids, add_time_ids], dim=0)
 
+        if circular_padding != 'none':
+            self.set_circular_padding_mode(circular_padding)
+
         prompt_embeds = prompt_embeds.to(device)
         add_text_embeds = add_text_embeds.to(device)
         add_time_ids = add_time_ids.to(device).repeat(batch_size * num_images_per_prompt, 1)
@@ -1201,6 +1207,9 @@ class StableDiffusionXLPipeline(
                 image = self.watermark.apply_watermark(image)
 
             image = self.image_processor.postprocess(image, output_type=output_type)
+
+        if circular_padding != 'none':
+            self.disable_circular_padding_mode()
 
         # Offload all models
         self.maybe_free_model_hooks()
